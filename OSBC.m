@@ -11,6 +11,17 @@ function [A,w,U,V,objHistory] = OSBC(X, nCluster, lambda1, lambda2)
 %     Y_km: nSmp * nCluster via kmeans
 %     Y_sr:   nSmp * nCluster via spectral rotation
 %
+if ~exist('s_type', 'var')
+    s_type = 'inner';
+end
+
+if ~exist('c_type', 'var')
+    c_type = 'kmeans';
+end
+
+if ~exist('maxIter', 'var')
+    maxIter = 100;
+end
 
 [nSmp, nDim] = size(X);
 
@@ -24,16 +35,18 @@ function [A,w,U,V,objHistory] = OSBC(X, nCluster, lambda1, lambda2)
 % Compute S
 %***************************************************
 
+
 S = zeros(nDim, nDim);
 switch s_type
 	case 'inner'
 		for i1 = 1:nDim
-			Ai = bsxfun(@neq, X(:,i1), X(:,i1)');
+			Ai = bsxfun(@ne, X(:,i1), X(:,i1)');
 			for i2 = 1:nDim
-				Aj = bsxfun(@neq, X(:,i2), X(:,i2)');
-				S(i,j) = sum(sum(Ai.*Aj))/nDim^2;
+				Aj = bsxfun(@ne, X(:,i2), X(:,i2)');
+				S(i1,i2) = sum(sum(Ai.*Aj))/nSmp^2;
 			end
-		end
+        end
+    case 'corr'
 	otherwise
 		error('not supported yet');
 end
@@ -56,7 +69,7 @@ for iter = 1:maxIter
 	%***************************************************
 	% Step 1, given A, w, get U, V
 	%***************************************************
-	switch ctype
+	switch c_type
 		case 'kmeans'
 			[y, V] = litekmeans(A, nCluster, 'Replicates', 10);
 			Y = LabelFormat(y);
@@ -75,17 +88,17 @@ for iter = 1:maxIter
 	q = zeros(nDim,1);
 	for i=1:nDim
 		Ai = bsxfun(@eq, X(:,i), X(:,i)');
-		p(i) = sum(sum(Ai.^2));
+		p(i) = sum(sum(Ai.^2)); 
 		q(i) = sum(sum(A .* Ai));
 	end
 	S2 = lambda2/lambda1 * (S + diag(p));
-	w = quadprog(S2, -q,[],[],ones(1,m), 1);
+	w = quadprog(S2, -q,[],[],ones(1,nDim), 1);
 
 
 	%***************************************************
 	% Step 3, given w U, V, get A
 	%***************************************************
-	switch ctype
+	switch c_type
 		case 'kmeans'
 			A_merge = zeros(nSmp, nSmp);
 			for i = 1:nDim
