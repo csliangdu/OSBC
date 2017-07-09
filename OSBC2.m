@@ -55,6 +55,7 @@ for i = 1:nDim
 	Ai = bsxfun(@eq, X(:, i), X(:, i)');
 	Aw = w(i) * Ai + Aw;
 end
+Aw = Aw - diag(diag(Aw));
 %**********************************************
 % Optimization problem
 % min ||a - Awi||^2
@@ -62,14 +63,10 @@ end
 %**********************************************
 if islocal
 	for i = 1:nSmp
-		a = Aw(i,:);
-		a(i) = 0; % exclude self
-		A(i,:) = EProjSimplex_new(Aw(i,:));
+		A(i,:) = EProjSimplex_new(Aw(i,:), k);
 	end
 else
 	for i = 1:nSmp
-		a = Aw(i,:);
-		a(i) = 0; % exclude self
 		A(i,:) = EProjSimplex_new(Aw(i,:));
 	end	
 end
@@ -104,10 +101,16 @@ for iter = 1:maxiter
 	% s = Awi - 0.5 * lambda * df
 	%**********************************************
 	S = Aw - 0.5 * lambda * distf;
-	for i = 1:nSmp
-		A(i,:) = EProjSimplex_new(S(i,:));
+	S = S - diag(diag(S));
+	if islocal
+		for i = 1:nSmp
+			A(i,:) = EProjSimplex_new(S(i,:), k);
+		end
+	else
+		for i = 1:nSmp
+			A(i,:) = EProjSimplex_new(S(i,:));
+		end	
 	end
-	
 	%**********************************************
 	% Update w (weight)
 	%**********************************************
